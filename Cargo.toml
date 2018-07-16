@@ -2,5 +2,20 @@
 name = "competo"
 version = "0.1.0"
 authors = ["vain0x <vainzerox@gmail.com>"]
+description = "Copy-paste tool for competitive programming"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/vain0x/competo.git"
 
 [dependencies]
+glob = "0.2"
+
+serde = "1"
+syn = { version = "0.14", features = ["full", "parsing", "extra-traits", "printing"] }
+quote = "0.6"
+rustfmt-nightly = "0.8"
+
+clap = "2"
+
+log = "0.4"
+env_logger = "0.5"
