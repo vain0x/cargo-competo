@@ -1,0 +1,1 @@
+RUST_LOG=competo cargo run -- --src-path ./example-lib/src install monoid > target/out.rs

@@ -15,7 +15,7 @@ syn = { version = "0.14", features = ["full", "parsing", "extra-traits", "printi
 quote = "0.6"
 rustfmt-nightly = "0.8"
 
-clap = "2"
+clap = "~2.32"
 
 log = "0.4"
 env_logger = "0.5"
