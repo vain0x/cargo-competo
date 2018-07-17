@@ -13,12 +13,11 @@ mod config;
 mod project;
 
 fn parse_args<'a>() -> clap::ArgMatches<'a> {
-    let app_title = "competo";
     let settings = {
         use clap::AppSettings::*;
         [GlobalVersion]
     };
-    clap::App::new(app_title)
+    clap::App::new(crate_name!())
         .version(crate_version!())
         .settings(&settings)
         .author(crate_authors!())
@@ -33,7 +32,7 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
         )
         .subcommand(
             clap::SubCommand::with_name("install")
-                .setting(clap::AppSettings::TrailingVarArg)
+                // .setting(clap::AppSettings::TrailingVarArg)
                 .arg(
                     clap::Arg::with_name("mod-name")
                         .takes_value(true)
