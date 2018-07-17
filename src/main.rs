@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 extern crate glob;
+#[macro_use]
 extern crate quote;
 extern crate rustfmt_nightly;
 extern crate serde;
@@ -8,6 +9,8 @@ extern crate syn;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate proc_macro;
+extern crate proc_macro2;
 
 mod config;
 mod project;
