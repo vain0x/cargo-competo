@@ -22,9 +22,9 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
     };
     clap::App::new(crate_name!())
         .version(crate_version!())
-        .settings(&settings)
         .author(crate_authors!())
         .about(crate_description!())
+        .settings(&settings)
         .arg(
             clap::Arg::with_name("src-path")
                 .long("src-path")
