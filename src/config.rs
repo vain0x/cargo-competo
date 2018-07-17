@@ -1,3 +1,5 @@
+//! Defines data structures of command line arguments.
+
 use clap;
 
 #[derive(Debug)]

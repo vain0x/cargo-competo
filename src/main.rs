@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 extern crate glob;
+#[allow(unused_imports)]
 #[macro_use]
 extern crate quote;
 extern crate rustfmt_nightly;
@@ -15,6 +16,8 @@ extern crate proc_macro2;
 mod config;
 mod project;
 
+/// Builds CLI app metadata, especially command line arguments format
+/// and parses given arguments.
 fn parse_args<'a>() -> clap::ArgMatches<'a> {
     let settings = {
         use clap::AppSettings::*;

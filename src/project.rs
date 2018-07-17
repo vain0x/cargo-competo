@@ -63,6 +63,8 @@ fn is_use_std(tree: &syn::UseTree) -> bool {
     }
 }
 
+/// Collects paths from root to leaf of a use tree.
+/// All paths prepend the specified path.
 fn use_paths(item_use: &syn::ItemUse, path: &ModPathBuf, paths: &mut Vec<ModPathBuf>) {
     fn go(node: &syn::UseTree, buf: &mut ModPathBuf, paths: &mut Vec<ModPathBuf>) {
         match node {
@@ -133,6 +135,7 @@ pub fn load_mod_file(
     let mut items = Vec::new();
     let mut uses = Vec::new();
 
+    // Retain items except for extern-crate, extern "C" etc.
     for item in syn_file.items.iter() {
         match item {
             syn::Item::ExternCrate(item) => {
@@ -145,11 +148,14 @@ pub fn load_mod_file(
                 trace!("Ignore {:?}", item);
             }
             syn::Item::Use(item) if !is_use_std(&item.tree) => {
+                // Self-crate use statement. Stripped from the output.
+                // Declares in-crate dependencies.
                 let mut path = mod_path.to_owned();
                 path.pop();
                 use_paths(&item, &path, &mut uses);
             }
             _ => {
+                // Copy to output.
                 items.push(item.clone());
             }
         }
@@ -166,7 +172,9 @@ pub fn load_mod_file(
     })
 }
 
+/// Does something and get final Rust code.
 pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> String {
+    // Find source directory.
     let src_path = match src_path {
         Some(src_path) => PathBuf::from(src_path),
         None => {
@@ -186,16 +194,20 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
         panic!(format!("Given dir doesn't exist: {:?}", src_path.to_str()))
     }
 
+    // Enumerate source file paths.
+
     let pat = src_path.join("**").join("*.rs").display().to_string();
     trace!("collecting {}", pat);
-
-    let mut entries = Vec::new();
 
     let paths = glob(&pat).unwrap();
     let file_paths = paths
         .into_iter()
         .collect::<Result<Vec<PathBuf>, _>>()
         .unwrap();
+
+    // Load each source file as an entry.
+
+    let mut entries = Vec::new();
 
     for file_path in file_paths {
         let mut mod_path = ModPathBuf::new();
@@ -207,6 +219,8 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
                 Ok(path) => path,
                 Err(_) => continue,
             };
+
+            // Build mod path from file path.
 
             for component in path.components() {
                 match component {
@@ -237,6 +251,9 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
 
         load_mod_file(mod_name, mod_path, src_path.join(file_path), &mut entries);
     }
+
+    // Append rust code into single string buffer
+    // by DFS on dependency graph starting from installed mods.
 
     fn go(entry: &Entry, entries: &Vec<Entry>, done: &mut BTreeSet<Vec<String>>, buf: &mut String) {
         if !done.insert(entry.mod_path.to_owned()) {
