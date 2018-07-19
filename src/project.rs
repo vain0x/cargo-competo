@@ -1,3 +1,4 @@
+use config;
 use quote::ToTokens;
 use std::collections::BTreeSet;
 use std::env;
@@ -173,9 +174,9 @@ pub fn load_mod_file(
 }
 
 /// Does something and get final Rust code.
-pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> String {
+pub fn collect(config: &config::Config) -> String {
     // Find source directory.
-    let src_path = match src_path {
+    let src_path = match config.src_path {
         Some(src_path) => PathBuf::from(src_path),
         None => {
             let root_path = project_root_path().expect("Cargo project not found");
@@ -183,6 +184,11 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
         }
     };
     let src_path = src_path.canonicalize().unwrap();
+
+    let main_file = match config.main_path {
+        Some(main_path) => PathBuf::from(main_path),
+        None => src_path.join("src"),
+    };
 
     use glob::glob;
 
@@ -292,7 +298,11 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
         }
     }
 
-    let install_mod_names = install_mod_names.into_iter().collect::<BTreeSet<_>>();
+    let install_mod_names = config
+        .install_mod_names
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
     let mut buf = String::new();
     let mut done = BTreeSet::new();
     for entry in entries.iter() {
@@ -302,7 +312,14 @@ pub fn collect(src_path: &Option<String>, install_mod_names: &Vec<String>) -> St
         go(entry, &entries, &mut done, &mut buf);
     }
 
-    format_src(&buf).unwrap()
+    let generated = format_src(&buf).unwrap();
+
+    // Update main file.
+
+    let mut main_code = String::new();
+    fs::read_to_string(&mut main_code).unwrap();
+
+    "".to_string()
 }
 
 fn starts_with(prefix: &ModPathBuf, path: &ModPathBuf) -> bool {

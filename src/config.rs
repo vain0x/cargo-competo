@@ -5,6 +5,7 @@ use clap;
 #[derive(Debug)]
 pub struct Config {
     pub src_path: Option<String>,
+    pub main_path: Option<String>,
     pub install_mod_names: Vec<String>,
 }
 
@@ -32,8 +33,12 @@ impl Config {
         };
 
         let src_path = gm.value_of("src-path").map(|s| s.to_owned());
+
+        let main_path = gm.value_of("main-file").map(|s| s.to_owned());
+
         Config {
             src_path,
+            main_path,
             install_mod_names,
         }
     }

@@ -36,6 +36,14 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .global(true)
                 .help("Path to source directory (defaults to ./src)"),
         )
+        .arg(
+            clap::Arg::with_name("main-file")
+                .long("main-file")
+                .takes_value(true)
+                .number_of_values(1)
+                .global(true)
+                .help("Source file to write to (defaults to <src-path>/main.rs"),
+        )
         .subcommand(
             clap::SubCommand::with_name("install")
                 // .setting(clap::AppSettings::TrailingVarArg)
