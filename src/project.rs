@@ -186,6 +186,7 @@ pub fn run(config: &config::Config) {
         }
     };
     let src_path = src_path.canonicalize().unwrap();
+    trace!("src_path = {}", src_path.display());
 
     let is_dir = fs::metadata(&src_path)
         .map(|meta| meta.is_dir())
@@ -197,8 +198,9 @@ pub fn run(config: &config::Config) {
 
     let main_path = match config.main_path {
         Some(ref main_path) => PathBuf::from(main_path),
-        None => src_path.join("src"),
+        None => src_path.join("src").join("main.rs"),
     };
+    trace!("main_path = {}", main_path.display());
 
     // Enumerate source file paths.
 
@@ -212,6 +214,9 @@ pub fn run(config: &config::Config) {
         .into_iter()
         .collect::<Result<Vec<PathBuf>, _>>()
         .unwrap();
+
+    trace!("found ({})", file_paths.len());
+    trace!("  {:?}", file_paths.iter().map(|p| p.display()));
 
     // Load main file,
     // find current entry mods
@@ -237,16 +242,21 @@ pub fn run(config: &config::Config) {
             vec![]
         }
     };
+    trace!("already installed mods: {:?}", entry_mods);
 
     for name in config.install_mod_names.iter() {
         entry_mods.push(name.to_owned())
     }
+    trace!("install mods: {:?}", config.install_mod_names);
 
     let main_span = {
         let first = main_code.find("// competo start");
         let end = main_code.find("// competo end");
         match (first, end) {
-            (Some(first), Some(end)) => (first, end),
+            (Some(first), Some(end)) => {
+                trace!("competo range found: {}-{}", first, end);
+                (first, end)
+            }
             _ => {
                 let len = main_code.as_bytes().len();
                 (len, len)
