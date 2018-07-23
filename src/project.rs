@@ -198,7 +198,7 @@ pub fn run(config: &config::Config) {
 
     let main_path = match config.main_path {
         Some(ref main_path) => PathBuf::from(main_path),
-        None => src_path.join("src").join("main.rs"),
+        None => src_path.join("main.rs"),
     };
     trace!("main_path = {}", main_path.display());
 
@@ -215,8 +215,11 @@ pub fn run(config: &config::Config) {
         .collect::<Result<Vec<PathBuf>, _>>()
         .unwrap();
 
-    trace!("found ({})", file_paths.len());
-    trace!("  {:?}", file_paths.iter().map(|p| p.display()));
+    trace!(
+        "found {} {:?}",
+        file_paths.len(),
+        file_paths.iter().map(|p| p.display()).collect::<Vec<_>>()
+    );
 
     // Load main file,
     // find current entry mods
@@ -230,6 +233,7 @@ pub fn run(config: &config::Config) {
             let index = index + install_pat.as_bytes().len();
             let end = main_code[index..]
                 .find('\n')
+                .map(|i| i + index)
                 .unwrap_or(main_code.as_bytes().len());
             let names = main_code[index..end]
                 .split_whitespace()
@@ -243,15 +247,20 @@ pub fn run(config: &config::Config) {
         }
     };
     trace!("already installed mods: {:?}", entry_mods);
+    trace!("install mods: {:?}", config.install_mod_names);
 
     for name in config.install_mod_names.iter() {
         entry_mods.push(name.to_owned())
     }
-    trace!("install mods: {:?}", config.install_mod_names);
+    entry_mods.sort();
+    entry_mods.dedup();
 
     let main_span = {
+        let end_marker = "// competo end\n";
         let first = main_code.find("// competo start");
-        let end = main_code.find("// competo end");
+        let end = main_code
+            .rfind(end_marker)
+            .map(|i| i + end_marker.as_bytes().len());
         match (first, end) {
             (Some(first), Some(end)) => {
                 trace!("competo range found: {}-{}", first, end);
@@ -351,15 +360,10 @@ pub fn run(config: &config::Config) {
         }
     }
 
-    let install_mod_names = config
-        .install_mod_names
-        .iter()
-        .cloned()
-        .collect::<BTreeSet<_>>();
     let mut buf = String::new();
     let mut done = BTreeSet::new();
     for entry in entries.iter() {
-        if !install_mod_names.contains(&entry.mod_name) {
+        if !entry_mods.contains(&entry.mod_name) {
             continue;
         }
         go(entry, &entries, &mut done, &mut buf);
