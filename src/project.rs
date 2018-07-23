@@ -174,23 +174,18 @@ pub fn load_mod_file(
 }
 
 /// Does something and get final Rust code.
-pub fn collect(config: &config::Config) -> String {
-    // Find source directory.
+pub fn run(config: &config::Config) {
+    // Find source directory,
+    // resolve main file path
+
     let src_path = match config.src_path {
-        Some(src_path) => PathBuf::from(src_path),
+        Some(ref src_path) => PathBuf::from(src_path),
         None => {
             let root_path = project_root_path().expect("Cargo project not found");
             root_path.join("src")
         }
     };
     let src_path = src_path.canonicalize().unwrap();
-
-    let main_file = match config.main_path {
-        Some(main_path) => PathBuf::from(main_path),
-        None => src_path.join("src"),
-    };
-
-    use glob::glob;
 
     let is_dir = fs::metadata(&src_path)
         .map(|meta| meta.is_dir())
@@ -200,7 +195,14 @@ pub fn collect(config: &config::Config) -> String {
         panic!(format!("Given dir doesn't exist: {:?}", src_path.to_str()))
     }
 
+    let main_path = match config.main_path {
+        Some(ref main_path) => PathBuf::from(main_path),
+        None => src_path.join("src"),
+    };
+
     // Enumerate source file paths.
+
+    use glob::glob;
 
     let pat = src_path.join("**").join("*.rs").display().to_string();
     trace!("collecting {}", pat);
@@ -210,6 +212,47 @@ pub fn collect(config: &config::Config) -> String {
         .into_iter()
         .collect::<Result<Vec<PathBuf>, _>>()
         .unwrap();
+
+    // Load main file,
+    // find current entry mods
+
+    let main_code = fs::read_to_string(&main_path).unwrap();
+
+    // mod names to be included
+    let mut entry_mods = {
+        let install_pat = "// competo install ";
+        if let Some(index) = main_code.find(install_pat) {
+            let index = index + install_pat.as_bytes().len();
+            let end = main_code[index..]
+                .find('\n')
+                .unwrap_or(main_code.as_bytes().len());
+            let names = main_code[index..end]
+                .split_whitespace()
+                .map(|word| word.trim())
+                .filter(|&word| word != ",")
+                .map(|word| word.to_owned())
+                .collect::<Vec<String>>();
+            names
+        } else {
+            vec![]
+        }
+    };
+
+    for name in config.install_mod_names.iter() {
+        entry_mods.push(name.to_owned())
+    }
+
+    let main_span = {
+        let first = main_code.find("// competo start");
+        let end = main_code.find("// competo end");
+        match (first, end) {
+            (Some(first), Some(end)) => (first, end),
+            _ => {
+                let len = main_code.as_bytes().len();
+                (len, len)
+            }
+        }
+    };
 
     // Load each source file as an entry.
 
@@ -314,12 +357,20 @@ pub fn collect(config: &config::Config) -> String {
 
     let generated = format_src(&buf).unwrap();
 
+    let subst = format!(
+        "// competo start\n// competo install {}\n{}\n// competo end\n",
+        entry_mods.join(" "),
+        generated
+    );
+
     // Update main file.
 
-    let mut main_code = String::new();
-    fs::read_to_string(&mut main_code).unwrap();
+    let updated_main_code = {
+        let (begin, end) = main_span;
+        format!("{}{}{}", &main_code[0..begin], subst, &main_code[end..])
+    };
 
-    "".to_string()
+    fs::write(&main_path, &updated_main_code).unwrap();
 }
 
 fn starts_with(prefix: &ModPathBuf, path: &ModPathBuf) -> bool {

@@ -62,7 +62,5 @@ fn main() {
 
     let matches = parse_args();
     let config = config::Config::from_matches(&matches);
-    let code = project::collect(&config.src_path, &config.install_mod_names);
-
-    print!("{}", code);
+    project::run(&config)
 }
