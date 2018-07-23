@@ -1,4 +1,4 @@
-use read_line::{self, read_line};
+use read_line::*;
 
 pub fn read_words() -> Vec<String> {
     let line = read_line();
