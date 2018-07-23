@@ -329,8 +329,10 @@ pub fn run(config: &config::Config) {
         }
 
         if let Some(source) = &entry.source {
+            trace!("visit {:?}", entry.mod_path);
             for dep in source.uses.iter() {
                 let mut dep = dep.to_owned();
+                trace!("  dep = {:?}", dep);
 
                 // Identifiers starting with uppercase aren't crate/mod.
                 loop {
@@ -372,7 +374,7 @@ pub fn run(config: &config::Config) {
     let generated = format_src(&buf).unwrap();
 
     let subst = format!(
-        "// competo start\n// competo install {}\n{}\n// competo end\n",
+        "// competo start\n// competo install {}\n{}// competo end\n",
         entry_mods.join(" "),
         generated
     );

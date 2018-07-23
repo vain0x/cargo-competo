@@ -1,6 +1,6 @@
-use read_line::read_line;
+use read_line::{self, read_line};
 
-fn read_words() -> Vec<String> {
+pub fn read_words() -> Vec<String> {
     let line = read_line();
-    line.split_whitespace().collect()
+    line.split_whitespace().map(|s| s.to_owned()).collect()
 }
