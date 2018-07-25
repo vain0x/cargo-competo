@@ -11,11 +11,12 @@ repository = "https://github.com/vain0x/competo.git"
 glob = "0.2"
 
 serde = "1"
-syn = { version = "0.14", features = ["full", "parsing", "extra-traits", "printing"] }
+syn = { version = "0.14", features = ["extra-traits", "fold", "full", "parsing", "printing"] }
 quote = "0.6"
+proc-macro2 = "0.4"
 rustfmt-nightly = "0.8"
 
-clap = "2"
+clap = "~2.32"
 
 log = "0.4"
 env_logger = "0.5"

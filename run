@@ -1,0 +1,1 @@
+RUST_LOG=competo RUST_BACKTRACE=1 cargo run -- --src-path ./example-lib/src install "$@"
