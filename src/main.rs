@@ -23,10 +23,7 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
         use clap::AppSettings::*;
         [GlobalVersion]
     };
-    clap::App::new(crate_name!())
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about(crate_description!())
+    app_from_crate!()
         .settings(&settings)
         .arg(
             clap::Arg::with_name("src-path")
@@ -45,14 +42,12 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .help("Source file to write to (defaults to <src-path>/main.rs"),
         )
         .subcommand(
-            clap::SubCommand::with_name("install")
-                // .setting(clap::AppSettings::TrailingVarArg)
-                .arg(
-                    clap::Arg::with_name("mod-name")
-                        .takes_value(true)
-                        .multiple(true)
-                        .help("Mod to be included"),
-                ),
+            clap::SubCommand::with_name("install").arg(
+                clap::Arg::with_name("mod-name")
+                    .takes_value(true)
+                    .multiple(true)
+                    .help("Mod to be included"),
+            ),
         )
         .get_matches()
 }
