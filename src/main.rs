@@ -34,8 +34,8 @@ fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .help("Path to source directory (defaults to ./src)"),
         )
         .arg(
-            clap::Arg::with_name("main-file")
-                .long("main-file")
+            clap::Arg::with_name("main-path")
+                .long("main-path")
                 .takes_value(true)
                 .number_of_values(1)
                 .global(true)
