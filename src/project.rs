@@ -6,37 +6,37 @@ use std::fs;
 use std::path::PathBuf;
 use syn;
 
-/// Finds project root directory from the current directory.
-pub fn project_root_path() -> Option<PathBuf> {
-    env::current_dir().ok().and_then(|mut cwd| loop {
-        trace!("Search project from {}", cwd.display());
-        cwd.push("Cargo.toml");
-        if fs::metadata(cwd.as_path())
-            .map(|meta| meta.is_file())
-            .unwrap_or(false)
-        {
-            cwd.pop();
-            return Some(cwd);
+const MANIFEST_NAME: &'static str = "Cargo.toml";
+
+/// Tries to find project root directory from the current directory.
+fn find_project_root() -> Option<PathBuf> {
+    let mut dir = env::current_dir().expect("Couldn't get current dir.");
+    trace!("Search project from {}", dir.display());
+
+    loop {
+        if let Ok(ref meta) = fs::metadata(&dir.join(MANIFEST_NAME)) {
+            if meta.is_file() {
+                return Some(dir);
+            }
         }
 
-        cwd.pop();
-        if !cwd.pop() {
+        if !dir.pop() {
             return None;
         }
-    })
+    }
 }
 
-fn format_src(src: &str) -> Option<String> {
+fn format_rust_code(code: &str) -> String {
     use rustfmt_nightly::{format_input, Config, EmitMode, Input, Verbosity};
 
-    let mut rustfmt_config = Config::default();
-    rustfmt_config.set().emit_mode(EmitMode::Stdout);
-    rustfmt_config.set().verbose(Verbosity::Quiet);
+    let mut config = Config::default();
+    config.set().emit_mode(EmitMode::Stdout);
+    config.set().verbose(Verbosity::Quiet);
 
-    let mut out = Vec::with_capacity(src.len() * 2);
-    let input = Input::Text(src.into());
-    format_input(input, &rustfmt_config, Some(&mut out)).ok()?;
-    String::from_utf8(out).ok()
+    let mut out = Vec::new();
+    let input = Input::Text(code.to_owned());
+    format_input(input, &config, Some(&mut out)).unwrap();
+    String::from_utf8(out).unwrap()
 }
 
 type ModPathBuf = Vec<String>;
@@ -181,7 +181,7 @@ pub fn run(config: &config::Config) {
     let src_path = match config.src_path {
         Some(ref src_path) => PathBuf::from(src_path),
         None => {
-            let root_path = project_root_path().expect("Cargo project not found");
+            let root_path = find_project_root().expect("Cargo project not found");
             root_path.join("src")
         }
     };
@@ -371,7 +371,7 @@ pub fn run(config: &config::Config) {
         go(entry, &entries, &mut done, &mut buf);
     }
 
-    let generated = format_src(&buf).unwrap();
+    let generated = format_rust_code(&buf);
 
     let subst = format!(
         "// competo start\n// competo install {}\n{}// competo end\n",
