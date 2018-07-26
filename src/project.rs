@@ -43,7 +43,7 @@ type ModPathBuf = Vec<String>;
 
 pub struct Source {
     syn_file: syn::File,
-    uses: Vec<ModPathBuf>,
+    deps: Vec<ModPathBuf>,
 }
 
 #[allow(unused)]
@@ -134,7 +134,7 @@ pub fn load_mod_file(
     let syn_file = syn::parse_file(&content).unwrap();
 
     let mut items = Vec::new();
-    let mut uses = Vec::new();
+    let mut deps = Vec::new();
 
     // Retain items except for extern-crate, extern "C" etc.
     for item in syn_file.items.iter() {
@@ -153,7 +153,7 @@ pub fn load_mod_file(
                 // Declares in-crate dependencies.
                 let mut path = mod_path.to_owned();
                 path.pop();
-                use_paths(&item, &path, &mut uses);
+                use_paths(&item, &path, &mut deps);
             }
             _ => {
                 // Copy to output.
@@ -163,7 +163,7 @@ pub fn load_mod_file(
     }
 
     let syn_file = syn::File { items, ..syn_file };
-    let source = Some(Source { syn_file, uses });
+    let source = Some(Source { syn_file, deps });
 
     entries.push(Entry {
         mod_name,
@@ -330,7 +330,7 @@ pub fn run(config: &config::Config) {
 
         if let Some(source) = &entry.source {
             trace!("visit {:?}", entry.mod_path);
-            for dep in source.uses.iter() {
+            for dep in source.deps.iter() {
                 let mut dep = dep.to_owned();
                 trace!("  dep = {:?}", dep);
 
