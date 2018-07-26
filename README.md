@@ -22,7 +22,6 @@ In competitive programming contests (such as AtCoder / Codeforces), solution mus
 
 - Binaries don't work; `cargo run` works though
 - Can't resolve dependency by function imports
-- Duplicated use directives cause compile error
 - Nav exprs will break
 - Bad error handling
 - Bad format of `macro_rules`

@@ -43,6 +43,7 @@ type ModPathBuf = Vec<String>;
 
 pub struct Source {
     syn_file: syn::File,
+    imports: Vec<ModPathBuf>,
     deps: Vec<ModPathBuf>,
 }
 
@@ -54,19 +55,9 @@ pub struct Entry {
     source: Option<Source>,
 }
 
-fn is_use_std(tree: &syn::UseTree) -> bool {
-    match tree {
-        syn::UseTree::Path(path) => path.ident == "std",
-        syn::UseTree::Name(name) => name.ident == "std",
-        syn::UseTree::Rename(rename) => rename.ident == "std",
-        syn::UseTree::Group(group) => group.items.iter().any(|tree| is_use_std(tree)),
-        _ => false,
-    }
-}
-
 /// Collects paths from root to leaf of a use tree.
 /// All paths prepend the specified path.
-fn use_paths(item_use: &syn::ItemUse, path: &ModPathBuf, paths: &mut Vec<ModPathBuf>) {
+fn use_paths(item_use: &syn::ItemUse, self_path: &ModPathBuf) -> Vec<ModPathBuf> {
     fn go(node: &syn::UseTree, buf: &mut ModPathBuf, paths: &mut Vec<ModPathBuf>) {
         match node {
             syn::UseTree::Path(path) => {
@@ -109,8 +100,10 @@ fn use_paths(item_use: &syn::ItemUse, path: &ModPathBuf, paths: &mut Vec<ModPath
         }
     }
 
-    let mut buf = path.to_owned();
-    go(&item_use.tree, &mut buf, paths);
+    let mut paths = vec![];
+    let mut buf = self_path.to_owned();
+    go(&item_use.tree, &mut buf, &mut paths);
+    paths
 }
 
 /// Loads a source file.
@@ -134,6 +127,7 @@ pub fn load_mod_file(
     let syn_file = syn::parse_file(&content).unwrap();
 
     let mut items = Vec::new();
+    let mut imports = Vec::new();
     let mut deps = Vec::new();
 
     // Retain items except for extern-crate, extern "C" etc.
@@ -148,12 +142,20 @@ pub fn load_mod_file(
             syn::Item::Mod(item) => {
                 trace!("Ignore {:?}", item);
             }
-            syn::Item::Use(item) if !is_use_std(&item.tree) => {
-                // Self-crate use statement. Stripped from the output.
-                // Declares in-crate dependencies.
-                let mut path = mod_path.to_owned();
-                path.pop();
-                use_paths(&item, &path, &mut deps);
+            syn::Item::Use(item) => {
+                // Top level use statements are collected to resolve dependencies and avoid duplication.
+
+                let mut self_path = mod_path.to_owned();
+                self_path.pop();
+
+                let paths = use_paths(&item, &self_path);
+                for path in paths {
+                    if path.starts_with(&["std".to_owned()]) {
+                        imports.push(path);
+                    } else {
+                        deps.push(path);
+                    }
+                }
             }
             _ => {
                 // Copy to output.
@@ -162,8 +164,17 @@ pub fn load_mod_file(
         }
     }
 
+    imports.sort();
+    imports.dedup();
+    deps.sort();
+    deps.dedup();
+
     let syn_file = syn::File { items, ..syn_file };
-    let source = Some(Source { syn_file, deps });
+    let source = Some(Source {
+        syn_file,
+        imports,
+        deps,
+    });
 
     entries.push(Entry {
         mod_name,
@@ -323,13 +334,26 @@ pub fn run(config: &config::Config) {
     // Append rust code into single string buffer
     // by DFS on dependency graph starting from installed mods.
 
-    fn go(entry: &Entry, entries: &Vec<Entry>, done: &mut BTreeSet<Vec<String>>, buf: &mut String) {
+    fn go(
+        entry: &Entry,
+        entries: &Vec<Entry>,
+        done: &mut BTreeSet<Vec<String>>,
+        imports: &mut Vec<ModPathBuf>,
+        buf: &mut String,
+    ) {
         if !done.insert(entry.mod_path.to_owned()) {
             return;
         }
 
         if let Some(source) = &entry.source {
             trace!("visit {:?}", entry.mod_path);
+
+            // Add imports to global import lists.
+
+            imports.extend(source.imports.to_owned().into_iter());
+
+            // Visit dependency mods.
+
             for dep in source.deps.iter() {
                 let mut dep = dep.to_owned();
                 trace!("  dep = {:?}", dep);
@@ -353,7 +377,7 @@ pub fn run(config: &config::Config) {
                     if !starts_with(&dep, &dep_entry.mod_path) {
                         continue;
                     }
-                    go(dep_entry, entries, done, buf);
+                    go(dep_entry, entries, done, imports, buf);
                 }
             }
 
@@ -362,13 +386,33 @@ pub fn run(config: &config::Config) {
         }
     }
 
-    let mut buf = String::new();
     let mut done = BTreeSet::new();
+    let mut imports = Vec::new();
+    let mut buf = String::new();
     for entry in entries.iter() {
         if !entry_mods.contains(&entry.mod_name) {
             continue;
         }
-        go(entry, &entries, &mut done, &mut buf);
+        go(entry, &entries, &mut done, &mut imports, &mut buf);
+    }
+
+    // Insert use directives and wrap into a mod.
+    {
+        imports.sort();
+        imports.dedup();
+
+        let import_code = {
+            let mut code = String::new();
+            for import in imports {
+                code += "use ";
+                code += &import.join("::");
+                code += ";\n";
+            }
+            code
+        };
+        buf.insert_str(0, &import_code);
+        buf.insert_str(0, "mod lib {\n");
+        buf += "\n}";
     }
 
     let generated = format_rust_code(&buf);
